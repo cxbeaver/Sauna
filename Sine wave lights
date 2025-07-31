@@ -1,0 +1,71 @@
+#include <FastLED.h>
+
+#define LED_PIN     6
+#define NUM_LEDS    50     // Set to your number of LEDs
+#define BRIGHTNESS  100
+#define LED_TYPE    WS2812B
+#define COLOR_ORDER GRB
+#define MAX_TWINKLES 10    // Max simultaneous twinkles
+#define TWINKLE_DURATION 1000  // Total duration in ms
+
+CRGB leds[NUM_LEDS];
+
+struct Twinkle {
+  int index;
+  uint32_t startTime;
+  uint16_t duration;
+  CRGB color;
+  bool active;
+};
+
+Twinkle twinkles[MAX_TWINKLES];
+
+void setup() {
+  FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS);
+  FastLED.setBrightness(BRIGHTNESS);
+  randomSeed(analogRead(0));
+
+  // Initialize twinkle slots
+  for (int i = 0; i < MAX_TWINKLES; i++) {
+    twinkles[i].active = false;
+  }
+}
+
+void loop() {
+  uint32_t now = millis();
+
+  // Possibly start a new twinkle
+  if (random(100) < 10) {  // 10% chance per loop to start a twinkle
+    for (int i = 0; i < MAX_TWINKLES; i++) {
+      if (!twinkles[i].active) {
+        twinkles[i].index = random(NUM_LEDS);
+        twinkles[i].startTime = now;
+        twinkles[i].duration = random(800, 1500);  // Random duration
+        twinkles[i].color = CHSV(random(160, 180), 40, 255);  // Soft bluish
+        twinkles[i].active = true;
+        break;
+      }
+    }
+  }
+
+  // Clear all LEDs
+  fill_solid(leds, NUM_LEDS, CRGB::Black);
+
+  // Update twinkles
+  for (int i = 0; i < MAX_TWINKLES; i++) {
+    if (twinkles[i].active) {
+      uint32_t elapsed = now - twinkles[i].startTime;
+      if (elapsed >= twinkles[i].duration) {
+        twinkles[i].active = false;
+      } else {
+        float progress = (float)elapsed / twinkles[i].duration;
+        float brightness = sin(progress * PI);  // Smooth in and out
+        leds[twinkles[i].index] = twinkles[i].color;
+        leds[twinkles[i].index].nscale8_video((uint8_t)(brightness * 255));
+      }
+    }
+  }
+
+  FastLED.show();
+  delay(20);  // Adjust for update speed
+}
