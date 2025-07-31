@@ -1,0 +1,74 @@
+#include <OneWire.h>
+#include <DallasTemperature.h>
+#include <FastLED.h>
+
+// LED Configuration
+#define LED_PIN 6
+#define NUM_LEDS 30
+#define BRIGHTNESS 100
+CRGB leds[NUM_LEDS];
+
+// DS18B20 Temperature Sensor
+#define ONE_WIRE_BUS 2
+OneWire oneWire(ONE_WIRE_BUS);
+DallasTemperature sensors(&oneWire);
+
+// Relay or Output Pin
+#define RELAY_PIN 7
+#define TEMP_THRESHOLD 30.0 // Degrees Celsius
+
+// Twinkle Timing
+unsigned long lastTwinkle = 0;
+const int twinkleInterval = 50;
+
+void setup() {
+// LED Setup
+FastLED.addLeds<WS2812B, LED_PIN, GRB>(leds, NUM_LEDS);
+FastLED.setBrightness(BRIGHTNESS);
+
+// Temperature Sensor Setup
+sensors.begin();
+
+// Relay Output Setup
+pinMode(RELAY_PIN, OUTPUT);
+digitalWrite(RELAY_PIN, LOW); // Start OFF
+
+Serial.begin(9600);
+}
+
+void loop() {
+unsigned long now = millis();
+
+// Twinkle LEDs periodically
+if (now - lastTwinkle > twinkleInterval) {
+lastTwinkle = now;
+twinkle();
+}
+
+// Read temperature
+sensors.requestTemperatures(); // Trigger reading
+float tempC = sensors.getTempCByIndex(0); // Assume only one sensor
+
+Serial.print("Temperature: ");
+Serial.println(tempC);
+
+// Turn on light (relay) if temp exceeds threshold
+if (tempC > TEMP_THRESHOLD) {
+digitalWrite(RELAY_PIN, HIGH); // Turn ON
+} else {
+digitalWrite(RELAY_PIN, LOW); // Turn OFF
+}
+
+delay(500); // Slight delay for sensor stability
+}
+
+void twinkle() {
+for (int i = 0; i < NUM_LEDS; i++) {
+if (random(100) < 2) {
+leds[i] = CHSV(random(160, 180), 50, 255); // Soft bluish twinkle
+} else {
+leds[i].fadeToBlackBy(10); // Smooth fade
+}
+}
+FastLED.show();
+}
